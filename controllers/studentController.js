@@ -146,6 +146,47 @@ const getStudentCount = async (req, res) => {
   }
 };
 
+const Timetable = require('../models/timetable');
+
+const getStudentAttendance = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const studentId = req.user._id; // Assuming user is authenticated and ID is available
+
+    // Find the timetable for the student’s class on the selected date
+    const attendance = await Timetable.findOne({
+      class: req.user.classId, 
+      date
+    }).populate({
+      path: 'periods.studentsAttendance.student',
+      select: 'name rollNumber email'
+    }).populate('periods.subject', 'name');
+
+    if (!attendance) {
+      return res.status(404).json({ message: 'No attendance found for the selected date.' });
+    }
+
+    // Filter attendance for the logged-in student only
+    const studentAttendance = attendance.periods.map(period => {
+      const studentRecord = period.studentsAttendance.find(
+        record => record.student._id.toString() === studentId.toString()
+      );
+      return {
+        periodNumber: period.periodNumber,
+        subject: period.subject.name,
+        status: studentRecord ? studentRecord.status : 'Not Marked'
+      };
+    });
+
+    res.status(200).json(studentAttendance);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
 module.exports = {
   getStudents,
   getStudentProfile,
@@ -153,4 +194,5 @@ module.exports = {
   getStudentCount,
   updateStudent,
   deleteStudent
+  ,getStudentAttendance
 };

@@ -2,8 +2,10 @@ const Timetable = require('../models/timetable');
 const Class = require('../models/classes');
 const Subject = require('../models/subject'); 
 const Teacher = require('../models/teacher'); 
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const Student=require('../models/student')
+const sendMail = require('../utils/sendMail');
+// const sendAbsenceEmail = require('../utils/emailService');
 
 
 // 📌 Add or Update Timetable for a Date
@@ -189,24 +191,24 @@ const getWeeklyTimetable = async (req, res) => {
   }
 };
 
-// 📌 Get Monthly Timetable
-const getMonthlyTimetable = async (req, res) => {
-  try {
-    console.log(month, year);
+// // 📌 Get Monthly Timetable
+// const getMonthlyTimetable = async (req, res) => {
+//   try {
+//     console.log(month, year);
     
-    const { month, year } = req.query;
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+//     const { month, year } = req.query;
+//     const startDate = new Date(year, month - 1, 1);
+//     const endDate = new Date(year, month, 0);
 
-    const timetable = await Timetable.find({ 
-      date: { $gte: startDate, $lte: endDate }
-    }).populate('periods.subject periods.teacher');
+//     const timetable = await Timetable.find({ 
+//       date: { $gte: startDate, $lte: endDate }
+//     }).populate('periods.subject periods.teacher');
 
-    res.status(200).json(timetable);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching monthly timetable' });
-  }
-};
+//     res.status(200).json(timetable);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error fetching monthly timetable' });
+//   }
+// };
 
 // 📌 Mark a Holiday
 const markHoliday = async (req, res) => {
@@ -274,7 +276,7 @@ const getTimetable = async (req, res) => {
 
 
 // ------------------------------------------------  
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer');
 
 const getAllTimetable = async (req, res) => {
   const { classId, date } = req.params;
@@ -289,14 +291,18 @@ const getAllTimetable = async (req, res) => {
   try {
     // Find timetable by classId and date and populate details
     let timetable = await Timetable.findOne({ class: classId, date })
-      .populate('periods.subject')
-      .populate('periods.studentsAttendance.student');
-
+    .populate({
+      path: 'periods.subject',
+      select: 'name', // ✅ Select only the 'name' field
+    })
+    .populate({
+      path: 'periods.studentsAttendance.student',
+      select: 'name', // ✅ Select only the 'name' field
+    });
     // Get all students in the class
     const allStudents = await Student.find({ classId: classId });
-console.log(allStudents);
+    console.log(allStudents);
 
-    // If timetable exists, merge all students into the attendance
     if (timetable) {
       const updatedPeriods = timetable.periods.map((period) => {
         // Create a map of existing attendance records
@@ -321,15 +327,19 @@ console.log(allStudents);
 
         return {
           periodNumber: period.periodNumber,
-          subject: period.subject ? {
-            _id: period.subject._id,
-            name: period.subject.name,
-          } : { name: 'No subject' },
+          subject: period.subject
+            ? {
+                _id: period.subject._id,
+                name: period.subject.name,
+              }
+            : { name: 'No subject' },
           studentsAttendance: completeAttendance,
         };
       });
 
+      // ✅ Include `_id` in the response
       res.status(200).json({
+        _id: timetable._id, // Added `_id`
         isHoliday: timetable.isHoliday,
         periods: updatedPeriods,
       });
@@ -348,6 +358,7 @@ console.log(allStudents);
       }));
 
       res.status(200).json({
+        _id: null, // ✅ No timetable, so _id is null
         isHoliday: false,
         periods: emptyPeriods,
       });
@@ -358,9 +369,10 @@ console.log(allStudents);
   }
 };
 
-
 // ✅ Mark Attendance
-const markAttendance = async (req, res) => {
+
+
+  const markAttendance = async (req, res) => {
   const { timetableId } = req.params;
   const { periodNumber, attendanceData } = req.body;
 
@@ -402,6 +414,56 @@ const markAttendance = async (req, res) => {
     res.status(500).json({ error: 'Failed to update attendance' });
   }
 };
+// const markAttendance = async (req, res) => {
+//   const { timetableId } = req.params;
+//   const { periodNumber, attendanceData } = req.body;
+
+//   if (!timetableId || !periodNumber || !attendanceData) {
+//     return res.status(400).json({ error: 'Missing required fields' });
+//   }
+
+//   try {
+//     const timetable = await Timetable.findById(timetableId);
+//     if (!timetable) {
+//       return res.status(404).json({ error: 'Timetable not found' });
+//     }
+
+//     const period = timetable.periods.find(p => p.periodNumber === periodNumber);
+//     if (!period) {
+//       return res.status(404).json({ error: 'Period not found' });
+//     }
+
+//     for (const { student, status } of attendanceData) {
+//       const studentRecord = period.studentsAttendance.find(
+//         att => att.student.toString() === student
+//       );
+
+//       if (studentRecord) {
+//         studentRecord.status = status;
+//       } else {
+//         period.studentsAttendance.push({ student, status });
+//       }
+
+//       // ✅ Send email if student is marked absent
+//       if (status === 'absent') {
+//         const studentInfo = await Student.findById(student);
+//         if (studentInfo && studentInfo.parentEmail) {
+//           const subject = `Attendance Notification for ${studentInfo.name}`;
+//           const message = `Dear Parent, your son/daughter ${studentInfo.name} was marked absent in Period ${periodNumber} on ${new Date(timetable.date).toDateString()}.`;
+          
+//           // Send email
+//           await sendMail(studentInfo.parentEmail, subject, message);
+//         }
+//       }
+//     }
+
+//     await timetable.save();
+//     res.status(200).json({ message: 'Attendance updated successfully' });
+//   } catch (error) {
+//     console.error('Error updating attendance:', error);
+//     res.status(500).json({ error: 'Failed to update attendance' });
+//   }
+// };
 
 
 const getAttendancePercentage = async (req, res) => {
@@ -435,8 +497,149 @@ const getAttendancePercentage = async (req, res) => {
   }
 };
 
-module.exports = { 
 
+const getAttendance = async (req, res) => {
+  try {
+    const { classId, date } = req.params;
+
+    if (!classId || !date) {
+      return res.status(400).json({ message: 'Class ID and date are required' });
+    }
+
+    const timetable = await Timetable.findOne({ class: classId, date })
+      .populate('periods.subject')
+      .populate('periods.studentsAttendance.student');
+
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found for the selected class and date' });
+    }
+
+    res.status(200).json(timetable);
+  } catch (error) {
+    console.error('Failed to get attendance:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+const  MonthlyTimetable = require("../models/timetable"); // Assuming you have models imported correctly
+
+
+
+const createMonthlyTimetable = async (req, res) => {
+  try {
+    const { classId, month, year, timetable } = req.body;
+
+    // Log the incoming data to inspect it
+    console.log("Received request body:", req.body);
+
+    // Validate required fields
+    if (!classId || !month || !year || !Array.isArray(timetable)) {
+      return res.status(400).json({ message: "Invalid data" });
+    }
+
+    const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+    // Ensure that timetable has the correct number of days (6)
+    if (timetable.length !== daysOfWeek.length) {
+      return res.status(400).json({ message: "Timetable must have 6 days (Monday to Saturday)" });
+    }
+
+    // Ensure each day has 7 periods
+    const isValidTimetable = timetable.every((day) => Array.isArray(day.periods) && day.periods.length === 7);
+    if (!isValidTimetable) {
+      return res.status(400).json({ message: "Each day must have 7 periods" });
+    }
+
+    // Check if the timetable already exists for this class, month, and year
+    const existingTimetable = await MonthlyTimetable.findOne({ class: classId, month, year });
+    if (existingTimetable) {
+      return res.status(400).json({ message: "Timetable already exists for this month and year" });
+    }
+
+    const timetableData = await Promise.all(
+      daysOfWeek.map(async (day, dayIndex) => {
+        const dayData = timetable[dayIndex];
+
+        // Log to inspect the day data
+        console.log(`Day ${day}:`, dayData);
+
+        return {
+          day,
+          periods: await Promise.all(
+            dayData.periods.map(async (period) => {
+              const students = await Student.find({ classId });
+
+              const studentsAttendance = students.map((student) => ({
+                student: student._id,
+                status: "present", // Default to present
+              }));
+
+              return {
+                periodNumber: period.periodNumber,
+                subject: period.subjectId, // Ensure that subjectId is being passed correctly
+                studentsAttendance,
+              };
+            })
+          ),
+        };
+      })
+    );
+
+    // Create new monthly timetable
+    const monthlyTimetable = new MonthlyTimetable({
+      class: classId,
+      month,
+      year,
+      timetable: timetableData,
+    });
+
+    // Save the timetable
+    await monthlyTimetable.save();
+
+    res.status(201).json({ message: "Monthly timetable created successfully", timetable: monthlyTimetable });
+  } catch (error) {
+    console.error("Error creating timetable:", error);
+    res.status(500).json({ message: "Error creating timetable", error });
+  }
+};
+
+
+
+// const Timetable = require('../models/Timetable');
+
+const getMonthlyTimetable = async (req, res) => {
+  try {
+    const { classId, month, year } = req.query;
+
+    if (!classId || !month || !year) {
+      return res.status(400).json({ message: 'Class ID, month, and year are required' });
+    }
+
+    const timetable = await Timetable.find({
+      class: classId,
+      date: {
+        $gte: new Date(`${year}-${month}-01`),
+        $lte: new Date(`${year}-${month}-31`),
+      }
+    }).populate({
+      path: 'periods.subject',
+      select: 'name teacher',
+    }).populate({
+      path: 'periods.studentsAttendance.student',
+      select: 'name rollNumber',
+    });
+
+    res.status(200).json(timetable);
+  } catch (error) {
+    console.error('Error fetching monthly timetable:', error);
+    res.status(500).json({ message: 'Failed to fetch timetable' });
+  }
+};
+
+module.exports = { getMonthlyTimetable };
+
+
+module.exports = { 
+  getAttendance,
   getAttendancePercentage,
   getAllTimetable,
   markAttendance,
@@ -444,8 +647,9 @@ module.exports = {
   addTimetable, 
   getTimetableByDate, 
   getWeeklyTimetable, 
-  getMonthlyTimetable, 
   markHoliday ,
-  getTimetableByClass
+  getTimetableByClass,
+  createMonthlyTimetable,
+  getMonthlyTimetable
 };
 

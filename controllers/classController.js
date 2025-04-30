@@ -25,12 +25,14 @@ const addClass = async (req, res) => {
 const getAllClasses = async (req, res) => {
   try {
     const classes = await Class.find();
-    res.status(200).json({ classes });
+    console.log("Classes fetched:", classes);
+    res.status(200).json({ classes }); // ✅ Return as { classes }
   } catch (error) {
-    console.error('Error fetching classes:', error);
-    res.status(500).json({ message: 'Error fetching classes' });
+    console.error("Error fetching classes:", error);
+    res.status(500).json({ message: "Error fetching classes" });
   }
 };
+
 
 // ✅ Delete a class
 const deleteClass = async (req, res) => {

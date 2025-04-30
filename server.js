@@ -34,7 +34,7 @@ const studentRoutes = require('./routes/studentRouter');
 const examRoutes = require('./routes/examRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const timetableRoute = require('./routes/getTimetablRouter');
-
+const getattendenceRoute = require('./routes/getAttendenceRouter')
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -46,9 +46,10 @@ app.use('/api/students', studentRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gettimetable',timetableRoute);
+app.use('/api/getattendence',getattendenceRoute);
 
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Start the server
 app.listen(PORT, () => {

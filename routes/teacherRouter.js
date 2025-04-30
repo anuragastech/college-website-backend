@@ -4,8 +4,9 @@ const {
     addTeacher,
     editTeacher,
     deleteTeacher,
-    getTeacherProfile,getTeacherCount
-} = require('../controllers/teachersContraoller'); // ✅ Fixed typo in the file name
+    getTeacherProfile,getTeacherCount,   getTimetableForTeacher
+    
+} = require('../controllers/teachersContraoller');
 
 const router = express.Router();
 
@@ -26,6 +27,10 @@ router.get('/profile', getTeacherProfile);
 
 router.get('/get-count', getTeacherCount);
 
+
+router.get('/get-timetable', getTimetableForTeacher);
+
+// router.post('/mark-attendance', markAttendance);
 
 
 module.exports = router;

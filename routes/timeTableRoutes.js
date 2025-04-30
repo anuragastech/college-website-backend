@@ -6,7 +6,7 @@ const {
   getMonthlyTimetable, 
   markHoliday ,
   getTimetableByClass,
-  getTimetable,getAllTimetable, markAttendance ,getAttendancePercentage
+  getTimetable,getAllTimetable, markAttendance ,getAttendancePercentage,getAttendance,createMonthlyTimetable
 } = require('../controllers/timeTableController');
 
 const router = express.Router();
@@ -14,7 +14,7 @@ const router = express.Router();
 router.post('/add', addTimetable); 
 router.get('/date/:date', getTimetableByDate); 
 router.get('/week', getWeeklyTimetable); 
-router.get('/month', getMonthlyTimetable);
+// router.get('/month', getMonthlyTimetable);
 router.post('/holiday', markHoliday);
 router.get('/:classId', getTimetableByClass);
 router.get('/getAllTimetable/:classId', getTimetable);
@@ -30,5 +30,11 @@ router.put('/markAttendance/:timetableId', markAttendance);
 
 router.get('/get-percentage', getAttendancePercentage);
 
+
+router.get('/get-attendance/:classId/:date', getAttendance);
+
+// ------------------------------  
+router.post("/create-monthly", createMonthlyTimetable);
+router.get('/get-monthly-timetable', getMonthlyTimetable);
 
 module.exports = router;
